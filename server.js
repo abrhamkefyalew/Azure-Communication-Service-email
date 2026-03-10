@@ -40,7 +40,8 @@ app.post("/send-email", async (req, res) => {
       senderAddress: senderEmail,
       content: {
         subject: subject,
-        plainText: body
+        plainText: body, // fallback for email clients that block HTML
+        html: body.replace(/\n/g, "<br>") // Convert newlines to <br> for HTML
       },
       recipients: {
         to: emailList.map(e => ({ address: e }))
