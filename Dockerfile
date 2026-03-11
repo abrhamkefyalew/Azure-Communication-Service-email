@@ -13,6 +13,9 @@ RUN npm install
 # Copy application files
 COPY . .
 
+# create logs directory
+RUN mkdir -p logs
+
 # Expose port
 EXPOSE 3000
 

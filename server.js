@@ -20,7 +20,7 @@ app.post("/send-email", async (req, res) => {
 
     if (!apiKey || apiKey !== API_KEY) {
       return res.status(401).json({
-        error: "Unauthorized"
+        error: "Unauthorized - Invalid API key"
       });
     }
 

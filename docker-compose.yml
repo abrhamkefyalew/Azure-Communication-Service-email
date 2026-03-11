@@ -9,3 +9,9 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+
+    volumes:
+      - email_logs:/app/logs
+
+volumes:
+  email_logs:
