@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.API_KEY;
 const connectionString = process.env.ACS_CONNECTION_STRING;
 const senderEmail = process.env.SENDER_EMAIL;
-const replyToEmail = process.env.REPLY_TO;   // ← New
+const replyToEmail = process.env.REPLY_TO;   
 
 const emailClient = new EmailClient(connectionString);
 
@@ -98,44 +98,55 @@ app.post("/send-email", async (req, res) => {
       });
     }
 
-    // Safety check for REPLY_TO
-    if (!replyToEmail) {
-      logger.error(`REPLY_TO environment variable is not set at ${requestTime}`);
-      return res.status(500).json({
-        success: false,
-        time: requestTime,
-        error: "REPLY_TO environment variable is missing"
-      });
-    }
-
     const emailList = Array.isArray(emails) ? emails : [emails];
 
     logger.info(`Preparing email`);
     logger.info(`Recipients: ${emailList.join(", ")}`);
     logger.info(`Subject: ${subject}`);
-    logger.info(`Reply-To: ${replyToEmail}`);
 
-    const message = {
-      senderAddress: senderEmail,                    // Keeps From as tickets@updates.patatix.com
+    let message;
 
-      content: {
-        subject: subject,
-        plainText: body,
-        html: body.replace(/\n/g, "<br>")
-      },
+    // ==================== TWO DIFFERENT CODE PATHS ====================
 
-      recipients: {
-        to: emailList.map(e => ({ address: e }))
-      },
+    if (replyToEmail && replyToEmail.trim() !== "") {
+      // === PATH 1: REPLY_TO is set ===
+      logger.info(`Reply-To: ${replyToEmail}`);
 
-      // ✅ This is the main change - Different Reply-To
-      replyTo: [
-        {
-          address: replyToEmail,
-          displayName: "Patatix Info"               // You can change this name if you want
+      message = {
+        senderAddress: senderEmail,
+        content: {
+          subject: subject,
+          plainText: body,
+          html: body.replace(/\n/g, "<br>")
+        },
+        recipients: {
+          to: emailList.map(e => ({ address: e }))
+        },
+        replyTo: [
+          {
+            address: replyToEmail,
+            displayName: "Patatix Info"
+          }
+        ]
+      };
+    } else {
+      // === PATH 2: REPLY_TO is NOT set (original code) ===
+      logger.info(`Reply-To not configured - sending without replyTo`);
+
+      message = {
+        senderAddress: senderEmail,
+        content: {
+          subject: subject,
+          plainText: body,
+          html: body.replace(/\n/g, "<br>")
+        },
+        recipients: {
+          to: emailList.map(e => ({ address: e }))
         }
-      ]
-    };
+      };
+    }
+
+    // ================================================================
 
     logger.info(`Sending email via Azure Communication Services`);
 
@@ -148,15 +159,14 @@ app.post("/send-email", async (req, res) => {
     logger.info(`Message ID: ${result.messageId}`);
 
     emailList.forEach(email => {
-      logger.info(`SUCCESS -> ${email} | subject="${subject}" | reply-to="${replyToEmail}"`);
+      logger.info(`SUCCESS -> ${email} | subject="${subject}"`);
     });
 
     res.json({
       success: true,
       time: successTime,
       recipients: emailList,
-      messageId: result.messageId,
-      replyTo: replyToEmail
+      messageId: result.messageId
     });
 
   } catch (error) {
@@ -188,6 +198,10 @@ app.listen(PORT, () => {
   logger.info(`Email API started at ${startTime}`);
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Sender Email: ${senderEmail}`);
-  logger.info(`Reply-To Email: ${replyToEmail || "NOT SET!"}`);
+  if (replyToEmail && replyToEmail.trim() !== "") {
+    logger.info(`Reply-To Email: ${replyToEmail}`);
+  } else {
+    logger.info(`Reply-To Email: NOT SET (will not use replyTo)`);
+  }
 
 });
